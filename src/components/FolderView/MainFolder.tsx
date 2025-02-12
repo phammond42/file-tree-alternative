@@ -27,10 +27,14 @@ export function MainFolder(props: FolderProps) {
     const [folderTree] = useRecoilState(recoilState.folderTree);
     const [focusedFolder, setFocusedFolder] = useRecoilState(recoilState.focusedFolder);
     const [_openFolders, setOpenFolders] = useRecoilState(recoilState.openFolders);
-    const [folderFileCountMap] = useRecoilState(recoilState.folderFileCountMap);
 
     // Force Update
     const forceUpdate = useForceUpdate();
+
+    const focusOnFolder = (folder: TFolder) => {
+        setFocusedFolder(folder);
+        setActiveFolderPath(folder.path);
+    };
 
     const createFolder = (underFolder: TFolder) => {
         let vaultChangeModal = new VaultChangeModal(plugin, underFolder, 'create folder');
@@ -43,7 +47,7 @@ export function MainFolder(props: FolderProps) {
         if (event === undefined) e = window.event as MouseEvent;
 
         // Menu Items
-        const folderMenu = new Menu(app);
+        const folderMenu = new Menu();
 
         folderMenu.addItem((menuItem) => {
             menuItem
@@ -57,7 +61,7 @@ export function MainFolder(props: FolderProps) {
                 menuItem
                     .setTitle('Focus Back to Root')
                     .setIcon('zoomOutDoubleIcon')
-                    .onClick(() => setFocusedFolder(rootFolder));
+                    .onClick(() => focusOnFolder(rootFolder));
             });
         }
 
@@ -66,7 +70,7 @@ export function MainFolder(props: FolderProps) {
                 menuItem
                     .setTitle('Focus to Parent Folder')
                     .setIcon('zoomOutIcon')
-                    .onClick(() => setFocusedFolder(folder.parent));
+                    .onClick(() => focusOnFolder(folder.parent));
             });
         }
 
@@ -98,7 +102,7 @@ export function MainFolder(props: FolderProps) {
     };
 
     const triggerFolderSortOptions = (e: React.MouseEvent) => {
-        const sortMenu = new Menu(plugin.app);
+        const sortMenu = new Menu();
 
         const changeSortSettingTo = (newValue: FolderSortType) => {
             plugin.settings.sortFoldersBy = newValue;
@@ -126,6 +130,10 @@ export function MainFolder(props: FolderProps) {
         plugin.app.workspace.trigger('sort-menu', sortMenu);
         sortMenu.showAtPosition({ x: e.pageX, y: e.pageY });
         return false;
+    };
+
+    const handleFolderNameDoubleClick = (folder: TFolder) => {
+        if (!folder.isRoot()) focusOnFolder(folder.parent);
     };
 
     let folderActionItemSize = 22;
@@ -169,6 +177,7 @@ export function MainFolder(props: FolderProps) {
                             isRootFolder={focusedFolder.isRoot()}
                             style={treeStyles}
                             onClick={() => setActiveFolderPath(focusedFolder.path)}
+                            onDoubleClick={() => handleFolderNameDoubleClick(focusedFolder)}
                             folder={focusedFolder}
                             onContextMenu={(e: MouseEvent) => handleRootFolderContextMenu(e, focusedFolder)}>
                             {children}

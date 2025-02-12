@@ -22,6 +22,7 @@ export const SingleViewVertical = (props: { plugin: FileTreeAlternativePlugin })
     }, [folderPaneHeight]);
 
     function touchMouseStart(e: React.MouseEvent<HTMLDivElement, MouseEvent>) {
+        if (e.type !== 'drag' && (e.target as Element).id !== 'file-tree-divider') return;
         e.preventDefault();
         setDividerOnMove(true);
         let height = dividerRef.current.offsetTop - folderPaneRef.current.offsetTop;
@@ -30,13 +31,14 @@ export const SingleViewVertical = (props: { plugin: FileTreeAlternativePlugin })
     }
 
     function touchMouseMove(e: React.MouseEvent<HTMLDivElement, MouseEvent>) {
-        e.preventDefault();
         if (!dividerOnMove) return;
+        e.preventDefault();
         setFolderPaneHeight(folderPaneHeight + (e.nativeEvent.clientY - clientY));
         setClientY(e.nativeEvent.clientY);
     }
 
     function touchMouseEnd(e: React.MouseEvent<HTMLDivElement, MouseEvent>) {
+        if (!dividerOnMove) return;
         e.preventDefault();
         setDividerOnMove(false);
         setClientY(e.nativeEvent.clientY);
@@ -86,6 +88,7 @@ export const SingleViewHorizontal = (props: { plugin: FileTreeAlternativePlugin 
     }, [folderPaneWidth]);
 
     function touchMouseStart(e: React.MouseEvent<HTMLDivElement, MouseEvent>) {
+        if (e.type !== 'drag' && (e.target as Element).id !== 'file-tree-divider-horizontal') return;
         e.preventDefault();
         setDividerOnMove(true);
         let width = dividerRef.current.offsetLeft - folderPaneRef.current.offsetLeft;
@@ -94,13 +97,14 @@ export const SingleViewHorizontal = (props: { plugin: FileTreeAlternativePlugin 
     }
 
     function touchMouseMove(e: React.MouseEvent<HTMLDivElement, MouseEvent>) {
-        e.preventDefault();
         if (!dividerOnMove) return;
+        e.preventDefault();
         setFolderPaneWidth(folderPaneWidth + (e.nativeEvent.clientX - clientX));
         setClientX(e.nativeEvent.clientX);
     }
 
     function touchMouseEnd(e: React.MouseEvent<HTMLDivElement, MouseEvent>) {
+        if (!dividerOnMove) return;
         e.preventDefault();
         setDividerOnMove(false);
         setClientX(e.nativeEvent.clientX);

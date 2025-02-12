@@ -1,15 +1,9 @@
-import { Plugin, addIcon, TAbstractFile } from 'obsidian';
-import { VIEW_TYPE, FileTreeView, ICON } from './FileTreeView';
+import { Plugin, addIcon, TAbstractFile, Notice } from 'obsidian';
+import { FileTreeView } from './FileTreeView';
 import { ZoomInIcon, ZoomOutIcon, ZoomOutDoubleIcon, LocationIcon, SpaceIcon } from './utils/icons';
 import { FileTreeAlternativePluginSettings, FileTreeAlternativePluginSettingsTab, DEFAULT_SETTINGS } from './settings';
-import { VaultChange } from 'utils/types';
-
-export const eventTypes = {
-    activeFileChange: 'fta-active-file-change',
-    refreshView: 'fta-refresh-view',
-    revealFile: 'fta-reveal-file',
-    vaultChange: 'fta-vault-change',
-};
+import { VaultChange, eventTypes } from 'utils/types';
+import { getBookmarkTitle } from 'utils/Utils';
 
 export default class FileTreeAlternativePlugin extends Plugin {
     settings: FileTreeAlternativePluginSettings;
@@ -23,6 +17,11 @@ export default class FileTreeAlternativePlugin extends Plugin {
         customWidthKey: 'fileTreePlugin-CustomWidth',
         focusedFolder: 'fileTreePlugin-FocusedFolder',
     };
+
+    // File Tree View Variables
+    VIEW_TYPE = 'file-tree-view';
+    VIEW_DISPLAY_TEXT = 'File Tree';
+    ICON = 'sheets-in-box';
 
     async onload() {
         console.log('Loading Alternative File Tree Plugin');
@@ -38,7 +37,7 @@ export default class FileTreeAlternativePlugin extends Plugin {
         await this.loadSettings();
 
         // Register File Tree View
-        this.registerView(VIEW_TYPE, (leaf) => {
+        this.registerView(this.VIEW_TYPE, (leaf) => {
             return new FileTreeView(leaf, this);
         });
 
@@ -56,17 +55,11 @@ export default class FileTreeAlternativePlugin extends Plugin {
             callback: async () => await this.openFileTreeLeaf(true),
         });
 
-        // Dispatch a revealFile event whenever a file is opened
-        this.registerEvent(this.app.workspace.on('file-open', () => {
-            if (this.settings.autoReveal) {
-                let event = new CustomEvent(eventTypes.revealFile, {
-                    detail: {
-                        file: this.app.workspace.getActiveFile(),
-                    },
-                });
-                window.dispatchEvent(event);
+        this.app.workspace.onLayoutReady(() => {
+            if (this.settings.bookmarksEvents) {
+                this.bookmarksAddEventListener();
             }
-        }));
+        });
 
         // Add Command to Reveal Active File
         this.addCommand({
@@ -74,7 +67,7 @@ export default class FileTreeAlternativePlugin extends Plugin {
             name: 'Reveal Active File',
             callback: () => {
                 // Activate file tree pane
-                let leafs = this.app.workspace.getLeavesOfType(VIEW_TYPE);
+                let leafs = this.app.workspace.getLeavesOfType(this.VIEW_TYPE);
                 if (leafs.length === 0) this.openFileTreeLeaf(true);
                 for (let leaf of leafs) {
                     this.app.workspace.revealLeaf(leaf);
@@ -89,6 +82,18 @@ export default class FileTreeAlternativePlugin extends Plugin {
             },
         });
 
+        // Add Command to create a new file under active folder path
+        this.addCommand({
+            id: ' create-new-note',
+            name: 'Create a New Note',
+            callback: () => {
+                let event = new CustomEvent(eventTypes.createNewNote, {
+                    detail: {},
+                });
+                window.dispatchEvent(event);
+            },
+        });
+
         // Add event listener for vault changes
         this.app.vault.on('create', this.onCreate);
         this.app.vault.on('delete', this.onDelete);
@@ -97,6 +102,18 @@ export default class FileTreeAlternativePlugin extends Plugin {
 
         // Ribbon Icon For Opening
         this.refreshIconRibbon();
+
+        // Dispatch a revealFile event whenever a file is opened
+        this.registerEvent(this.app.workspace.on('file-open', () => {
+            if (this.settings.autoReveal) {
+                let event = new CustomEvent(eventTypes.revealFile, {
+                    detail: {
+                        file: this.app.workspace.getActiveFile(),
+                    },
+                });
+                window.dispatchEvent(event);
+            }
+        }));
     }
 
     onunload() {
@@ -107,6 +124,7 @@ export default class FileTreeAlternativePlugin extends Plugin {
         this.app.vault.off('delete', this.onDelete);
         this.app.vault.off('modify', this.onModify);
         this.app.vault.off('rename', this.onRename);
+        this.bookmarksRemoveEventListener();
     }
 
     async loadSettings() {
@@ -116,6 +134,60 @@ export default class FileTreeAlternativePlugin extends Plugin {
     async saveSettings() {
         await this.saveData(this.settings);
     }
+
+    bookmarksEventHandler = (event: Event) => {
+        // Find the tree-item that includes the bookmarks plugin title
+        let treeItem: Element = (event.target as any).closest('.tree-item');
+        if (!treeItem) return;
+        // If it exists, get the title of the bookmark
+        let dataPath: string = treeItem.getAttribute('data-path');
+        if (!dataPath || dataPath === '') return;
+        // Find the bookmark from the items
+        let bookmarkItem = getBookmarkTitle(dataPath);
+        // Create Custom Menu only if Shift is Used
+        if ((event as any).shiftKey) {
+            if (!bookmarkItem) return;
+            event.stopImmediatePropagation();
+            if (bookmarkItem.type === 'file') {
+                // Dispatch Reveal File Event
+                let customEvent = new CustomEvent(eventTypes.revealFile, {
+                    detail: {
+                        file: this.app.vault.getAbstractFileByPath(bookmarkItem.path),
+                    },
+                });
+                window.dispatchEvent(customEvent);
+            } else if (bookmarkItem.type === 'folder') {
+                event.stopImmediatePropagation();
+                // Dispatch Reveal Folder Event
+                let customEvent = new CustomEvent(eventTypes.revealFolder, {
+                    detail: {
+                        folder: this.app.vault.getAbstractFileByPath(bookmarkItem.path),
+                    },
+                });
+                window.dispatchEvent(customEvent);
+            } else {
+                new Notice('Not a file or folder');
+            }
+        }
+    };
+
+    getBookmarksLeafElement = (): Element => {
+        return document.querySelector('.workspace-leaf-content[data-type="bookmarks"]');
+    };
+
+    bookmarksAddEventListener = () => {
+        let bookmarkLeafElement = this.getBookmarksLeafElement();
+        if (bookmarkLeafElement) {
+            bookmarkLeafElement.addEventListener('click', this.bookmarksEventHandler, true);
+        }
+    };
+
+    bookmarksRemoveEventListener = () => {
+        let bookmarkLeafElement = this.getBookmarksLeafElement();
+        if (bookmarkLeafElement) {
+            bookmarkLeafElement.removeEventListener('click', this.bookmarksEventHandler, true);
+        }
+    };
 
     triggerVaultChangeEvent = (file: TAbstractFile, changeType: VaultChange, oldPath?: string) => {
         let event = new CustomEvent(eventTypes.vaultChange, {
@@ -136,18 +208,18 @@ export default class FileTreeAlternativePlugin extends Plugin {
     refreshIconRibbon = () => {
         this.ribbonIconEl?.remove();
         if (this.settings.ribbonIcon) {
-            this.ribbonIconEl = this.addRibbonIcon(ICON, 'File Tree Alternative Plugin', async () => {
+            this.ribbonIconEl = this.addRibbonIcon(this.ICON, 'File Tree Alternative Plugin', async () => {
                 await this.openFileTreeLeaf(true);
             });
         }
     };
 
     openFileTreeLeaf = async (showAfterAttach: boolean) => {
-        let leafs = this.app.workspace.getLeavesOfType(VIEW_TYPE);
+        let leafs = this.app.workspace.getLeavesOfType(this.VIEW_TYPE);
         if (leafs.length == 0) {
             // Needs to be mounted
             let leaf = this.app.workspace.getLeftLeaf(false);
-            await leaf.setViewState({ type: VIEW_TYPE });
+            await leaf.setViewState({ type: this.VIEW_TYPE });
             if (showAfterAttach) this.app.workspace.revealLeaf(leaf);
         } else {
             // Already mounted - show if only selected showAfterAttach
@@ -158,7 +230,7 @@ export default class FileTreeAlternativePlugin extends Plugin {
     };
 
     detachFileTreeLeafs = () => {
-        let leafs = this.app.workspace.getLeavesOfType(VIEW_TYPE);
+        let leafs = this.app.workspace.getLeavesOfType(this.VIEW_TYPE);
         for (let leaf of leafs) {
             (leaf.view as FileTreeView).destroy();
             leaf.detach();

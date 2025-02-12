@@ -1,36 +1,78 @@
 import { TFile, TFolder, App, Keymap, Platform } from 'obsidian';
 import FileTreeAlternativePlugin from 'main';
-import { FolderFileCountMap, FolderTree } from 'utils/types';
-import { stripIndents } from 'common-tags';
-import dayjs from 'dayjs';
-import { eventTypes } from 'main';
+import { FolderFileCountMap, FolderTree, OZFile, BookmarksPluginItem } from 'utils/types';
 import { VaultChangeModal } from 'modals';
 
 // Helper Function To Get List of Files
-export const getFilesUnderPath = (path: string, plugin: FileTreeAlternativePlugin, getAllFiles?: boolean): TFile[] => {
-    var filesUnderPath: TFile[] = [];
+export const getFilesUnderPath = (params: {
+    path: string;
+    plugin: FileTreeAlternativePlugin;
+    excludedExtensions: string[];
+    excludedFolders: string[];
+    getAllFiles?: boolean;
+}): OZFile[] => {
+    const { path, plugin, getAllFiles, excludedExtensions, excludedFolders } = params;
+    var filesUnderPath: OZFile[] = [];
     var showFilesFromSubFolders = getAllFiles ? true : plugin.settings.showFilesFromSubFolders;
-    recursiveFx(path, plugin.app);
-    function recursiveFx(path: string, app: App) {
-        var folderObj = app.vault.getAbstractFileByPath(path);
+    var folderObj = plugin.app.vault.getAbstractFileByPath(path);
+    recursiveFx(folderObj as TFolder, plugin.app);
+    function recursiveFx(folderObj: TFolder, app: App) {
         if (folderObj instanceof TFolder && folderObj.children) {
             for (let child of folderObj.children) {
-                if (child instanceof TFile) filesUnderPath.push(child);
-                if (child instanceof TFolder && showFilesFromSubFolders) recursiveFx(child.path, app);
+                if (child instanceof TFile) {
+                    if (
+                        excludedExtensions.includes(child.extension) ||
+                        (plugin.settings.hideAttachments && child.path.toLowerCase().includes(plugin.settings.attachmentsFolderName.toLowerCase())) ||
+                        excludedFolders.includes(child.parent.path)
+                    )
+                        continue;
+                    filesUnderPath.push(TFile2OZFile(child));
+                }
+                if (child instanceof TFolder && showFilesFromSubFolders) recursiveFx(child, app);
             }
         }
     }
     return filesUnderPath;
 };
 
+// Converted from TFile to OZFile
+export const TFile2OZFile = (t: TFile): OZFile => {
+    return {
+        path: t.path,
+        basename: t.basename,
+        extension: t.extension,
+        stat: {
+            mtime: t.stat.mtime,
+            ctime: t.stat.ctime,
+            size: t.stat.size,
+        },
+        parent: {
+            path: t.parent.path,
+        },
+        isFolderNote: isFolderNote(t),
+    };
+};
+
+// Check if the file is a folder note
+export const isFolderNote = (t: TFile) => {
+    return t.extension === 'md' && t.basename === t.parent.name;
+};
+
 // Helper Function to Create Folder Tree
-export const createFolderTree = (startFolder: TFolder): FolderTree => {
+export const createFolderTree = (params: { startFolder: TFolder; excludedFolders: string[]; plugin: FileTreeAlternativePlugin }): FolderTree => {
+    const { startFolder, excludedFolders, plugin } = params;
     let fileTree: { folder: TFolder; children: any } = { folder: startFolder, children: [] };
     function recursive(folder: TFolder, object: { folder: TFolder; children: any }) {
         if (!(folder && folder.children)) return;
         for (let child of folder.children) {
             if (child instanceof TFolder) {
                 let childFolder: TFolder = child as TFolder;
+                if (
+                    (plugin.settings.hideAttachments && childFolder.name === plugin.settings.attachmentsFolderName) ||
+                    (excludedFolders.length > 0 && excludedFolders.contains(child.path))
+                ) {
+                    continue;
+                }
                 let newObj: { folder: TFolder; children: any } = { folder: childFolder, children: [] };
                 object.children.push(newObj);
                 if (childFolder.children) recursive(childFolder, newObj);
@@ -112,41 +154,8 @@ export const internalPluginLoaded = (pluginName: string, app: App) => {
     return app.internalPlugins.plugins[pluginName]?._loaded;
 };
 
-export const openFile = (props: { file: TFile; app: App; newLeaf: boolean; leafBySplit?: boolean }) => {
-    const { file, app, newLeaf, leafBySplit } = props;
-    let leaf = app.workspace.getLeaf(newLeaf);
-    if (leafBySplit) leaf = app.workspace.createLeafBySplit(leaf, 'vertical');
-    app.workspace.setActiveLeaf(leaf, false);
-    leaf.openFile(file, { eState: { focus: true } });
-};
-
 export const openInternalLink = (event: React.MouseEvent<Element, MouseEvent>, link: string, app: App) => {
     app.workspace.openLinkText(link, '/', Keymap.isModifier(event as unknown as MouseEvent, 'Mod') || 1 === event.button);
-};
-
-export const openFileInNewTab = (app: App, file: TFile) => {
-    openFile({ file: file, app: app, newLeaf: true });
-};
-
-export const openFileInNewTabGroup = (app: App, file: TFile) => {
-    openFile({ file: file, app: app, newLeaf: false, leafBySplit: true });
-};
-
-export const getFileCreateString = (params: { plugin: FileTreeAlternativePlugin; fileName: string }): string => {
-    const { plugin, fileName } = params;
-
-    return stripIndents`
-    ${
-        plugin.settings.createdYaml
-            ? `
-        ---
-        created: ${dayjs(new Date()).format('YYYY-MM-DD hh:mm:ss')}
-        ---
-        `
-            : ''
-    }
-    ${plugin.settings.fileNameIsHeader ? `# ${fileName}` : ''}
-    `;
 };
 
 export const pluginIsLoaded = (app: App, pluginId: string) => {
@@ -154,22 +163,27 @@ export const pluginIsLoaded = (app: App, pluginId: string) => {
     return app.plugins.getPlugin(pluginId);
 };
 
-export const createNewMarkdownFile = async (plugin: FileTreeAlternativePlugin, folder: TFolder, newFileName: string, content?: string) => {
-    // @ts-ignore
-    const newFile = await plugin.app.fileManager.createNewMarkdownFile(folder, newFileName);
-    if (content && content !== '') await plugin.app.vault.modify(newFile, content);
-    openFile({ file: newFile, app: plugin.app, newLeaf: false });
-    let evt = new CustomEvent(eventTypes.activeFileChange, { detail: { filePath: newFile.path } });
-    window.dispatchEvent(evt);
-};
-
 export const platformIsMobile = () => {
     return Platform.isMobile;
 };
 
-export const createNewFile = async (e: React.MouseEvent, folderPath: string, plugin: FileTreeAlternativePlugin) => {
+export const createNewFile = async (e: React.MouseEvent | null, folderPath: string, plugin: FileTreeAlternativePlugin) => {
     let targetFolder = plugin.app.vault.getAbstractFileByPath(folderPath);
     if (!targetFolder) return;
     let modal = new VaultChangeModal(plugin, targetFolder, 'create note');
     modal.open();
+};
+
+export const getBookmarksPluginItems = (): BookmarksPluginItem[] => {
+    return (app as any).internalPlugins.plugins['bookmarks'].instance.items as BookmarksPluginItem[];
+};
+
+export const getBookmarkTitle = (title: string): BookmarksPluginItem => {
+    let bookmarkItems = getBookmarksPluginItems();
+    let titleParts = title.split('/');
+    let currentItem: BookmarksPluginItem = bookmarkItems.find((b) => b.title === titleParts[0]);
+    for (let i = 1; i < titleParts.length; i++) {
+        currentItem = currentItem.items.find((b) => b.title === titleParts[i]);
+    }
+    return currentItem;
 };

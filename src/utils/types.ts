@@ -1,5 +1,20 @@
 import { TFolder, TFile } from 'obsidian';
 
+export interface OZFile {
+    path: string;
+    basename: string;
+    extension: string;
+    stat: {
+        mtime: number;
+        ctime: number;
+        size: number;
+    };
+    parent: {
+        path: string;
+    };
+    isFolderNote: boolean;
+}
+
 export interface FolderFileCountMap {
     [key: string]: {
         open: number;
@@ -26,4 +41,21 @@ export class CustomVaultChangeEvent extends Event {
         changeType: VaultChange;
         oldPath: string;
     };
+}
+
+export const eventTypes = {
+    activeFileChange: 'fta-active-file-change',
+    refreshView: 'fta-refresh-view',
+    revealFile: 'fta-reveal-file',
+    revealFolder: 'fta-reveal-folder',
+    vaultChange: 'fta-vault-change',
+    createNewNote: 'fta-create-new-note',
+};
+
+export interface BookmarksPluginItem {
+    type: 'file' | 'group' | 'search' | 'folder';
+    ctime: number;
+    path: string;
+    title: string; // data-path from the element
+    items: BookmarksPluginItem[];
 }

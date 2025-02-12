@@ -7,6 +7,7 @@ import { useRecoilState } from 'recoil';
 import * as recoilState from 'recoil/pluginState';
 import * as Util from 'utils/Utils';
 import { VaultChangeModal, MoveSuggestionModal, ConfirmationModal } from 'modals';
+import * as newFileUtils from 'utils/newFile';
 
 interface NestedFoldersProps {
     plugin: FileTreeAlternativePlugin;
@@ -28,11 +29,13 @@ export function NestedFolders(props: NestedFoldersProps) {
 
     const handleFolderNameClick = (folderPath: string) => setActiveFolderPath(folderPath);
 
+    const focusOnFolder = (folder: TFolder) => {
+        setFocusedFolder(folder);
+        setActiveFolderPath(folder.path);
+    };
+
     const getSortedFolderTree = (folderTree: FolderTree[]) => {
         let newTree: FolderTree[] = folderTree;
-        if (excludedFolders.length > 0) {
-            newTree = newTree.filter((tree) => !excludedFolders.contains(tree.folder.path));
-        }
         newTree = newTree.sort((a, b) => {
             if (plugin.settings.sortFoldersBy === 'name') {
                 return a.folder.name.localeCompare(b.folder.name, 'en', { numeric: true });
@@ -53,7 +56,7 @@ export function NestedFolders(props: NestedFoldersProps) {
         if (event === undefined) e = window.event as MouseEvent;
 
         // Menu Items
-        const folderMenu = new Menu(plugin.app);
+        const folderMenu = new Menu();
 
         // Focus Items
         if (Util.hasChildFolder(folder)) {
@@ -61,7 +64,7 @@ export function NestedFolders(props: NestedFoldersProps) {
                 menuItem
                     .setTitle('Focus on Folder')
                     .setIcon('zoomInIcon')
-                    .onClick(() => setFocusedFolder(folder));
+                    .onClick(() => focusOnFolder(folder));
             });
         }
 
@@ -70,7 +73,7 @@ export function NestedFolders(props: NestedFoldersProps) {
                 menuItem
                     .setTitle('Focus Back to Root')
                     .setIcon('zoomOutIcon')
-                    .onClick(() => setFocusedFolder(rootFolder));
+                    .onClick(() => focusOnFolder(rootFolder));
             });
         }
 
@@ -191,7 +194,7 @@ export function NestedFolders(props: NestedFoldersProps) {
                         .setTitle('Create Folder Note')
                         .setIcon('create-new')
                         .onClick(async (ev: MouseEvent) => {
-                            Util.createNewMarkdownFile(plugin, folder, folder.name, `# ${folder.name}`);
+                            newFileUtils.createNewMarkdownFile(plugin, folder, folder.name, `# ${folder.name}`);
                         });
                 });
             }
@@ -220,12 +223,13 @@ export function NestedFolders(props: NestedFoldersProps) {
                 sortedFolderTree.map((child) => {
                     return (
                         <React.Fragment key={child.folder.path}>
-                            {(child.folder as TFolder).children.some((child) => child instanceof TFolder) ? (
+                            {child.children.length > 0 ? (
                                 <Tree
                                     plugin={plugin}
                                     content={child.folder.name}
                                     open={openFolders.contains(child.folder.path)}
                                     onClick={() => handleFolderNameClick(child.folder.path)}
+                                    onDoubleClick={() => focusOnFolder(child.folder)}
                                     onContextMenu={(e: MouseEvent | TouchEvent) =>
                                         handleFolderContextMenu({
                                             event: e,
@@ -240,6 +244,7 @@ export function NestedFolders(props: NestedFoldersProps) {
                                     plugin={plugin}
                                     content={child.folder.name}
                                     onClick={() => handleFolderNameClick(child.folder.path)}
+                                    onDoubleClick={() => focusOnFolder(child.folder)}
                                     onContextMenu={(e: MouseEvent) =>
                                         handleFolderContextMenu({
                                             event: e,

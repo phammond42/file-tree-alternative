@@ -1,5 +1,125 @@
 # Release Updates
 
+## Version 2.6.0
+
+-   Reveal Active File activates the Leaf
+
+## Version 2.5.9
+
+-   Fix for Pinned File Updates
+
+## Version 2.5.8
+
+-   Fix for selected folder color
+
+## Version 2.5.7
+
+-   Pin Functionality Fix
+
+## Version 2.5.6
+
+-   Style adjustment for folder and file (border and size)
+-   Folder icon change handling fix
+-   File icon display fix
+
+## Version 2.5.5
+
+-   Drag Manager Fix
+
+## Version 2.5.4
+
+-   Instant update after Exclude Folder Context Menu
+
+## Version 2.5.3
+
+-   Rename folder fix
+
+## Version 2.5.2
+
+-   Fix for event listener of bookmarks plugin
+
+## Version 2.5.1
+
+-   Exclude attachments folder, no matter where it is located
+-   File List and Folder List obtain method improvement
+-   Exclusions are respected within the "all" search
+-   Folder children check correction to avoid having expand button enabled for folders not having children
+
+## Version 2.5.0
+
+-   Bookmark Plugin event listener fix and remove listener during unload of the plugin automatically
+
+## Version 2.4.9
+
+-   Bookmarks Plugin Soft Implementation - Users need to click on file or folder bookmarks using shift button
+
+## Version 2.4.8
+
+-   Rename Plugin to be compliant with Obsidian rules
+
+## Version 2.4.7
+
+-   Handle Rename for not .md files correctly
+
+## Version 2.4.6
+
+-   Divider Move Fix (which was broken because of drag manager fix)
+
+## Version 2.4.5
+
+-   Drag Manager Fix to display details during drag
+
+## Version 2.4.4
+
+-   Drag Fix for Files and Folders
+
+## Version 2.4.3
+
+-   Fix for Pinned Files
+-   Fix for initial root folder and focused folder load from the local storage
+
+## Version 2.4.2
+
+-   #181 Fix for Reveal Active File, Fix for Event Listener Removal
+
+## Version 2.4.1
+
+-   Lazy load for File List to reduce Memory Consumption
+
+## Version 2.4.0
+
+-   Fix for #144 - Root folder doesn't get updated if the sort by is created time or updated time
+
+## Version 2.3.9
+
+-   Fix for file context menu
+-   Default file or folder name (Untitled) during a file/folder creation
+
+## Version 2.3.8
+
+-   TFile to OZFile for less memory consumption and to break live updates
+-   Event Handler fix for File Name Update for Subfolder View (Disappering Files Solution)
+-   Further React Component Optimization
+
+## Version 2.3.7
+
+-   Minor fixes to adjust the plugin to the latest API
+-   Rollup and Million for bundling
+-   React Upgrade
+
+## Version 2.3.6
+
+-   Double Click Focus Feature
+-   Focus now also activates the folder in the file pane
+
+## Version 2.3.5
+
+-   Folder Note Rename Handle - Rename also the file name under folder
+
+## Version 2.3.4
+
+-   Create a new note command
+
 ## Version 2.3.3
 
 -   Reveal Leaf during initial vault load fix

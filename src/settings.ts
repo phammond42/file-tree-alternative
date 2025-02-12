@@ -1,6 +1,7 @@
-import FileTreeAlternativePlugin, { eventTypes } from './main';
+import FileTreeAlternativePlugin from './main';
 import { PluginSettingTab, Setting, App, Notice } from 'obsidian';
 import { LocalStorageHandler } from '@ozntel/local-storage-handler';
+import { eventTypes } from 'utils/types';
 
 type FolderIcon = 'default' | 'box-folder' | 'icomoon' | 'typicon' | 'circle-gg';
 export type SortType = 'name' | 'last-update' | 'created' | 'file-size';
@@ -20,6 +21,8 @@ export interface FileTreeAlternativePluginSettings {
     autoReveal: boolean;
     excludedExtensions: string;
     excludedFolders: string;
+    hideAttachments: boolean;
+    attachmentsFolderName: string;
     folderIcon: FolderIcon;
     folderCount: boolean;
     folderCountOption: string;
@@ -35,6 +38,7 @@ export interface FileTreeAlternativePluginSettings {
     folderNote: boolean;
     deleteFileOption: DeleteFileOption;
     showFileNameAsFullPath: boolean;
+    bookmarksEvents: boolean;
 }
 
 export const DEFAULT_SETTINGS: FileTreeAlternativePluginSettings = {
@@ -49,6 +53,8 @@ export const DEFAULT_SETTINGS: FileTreeAlternativePluginSettings = {
     autoReveal: false,
     excludedExtensions: '',
     excludedFolders: '',
+    hideAttachments: false,
+    attachmentsFolderName: 'attachments',
     folderIcon: 'default',
     folderCount: true,
     folderCountOption: 'notes',
@@ -64,6 +70,7 @@ export const DEFAULT_SETTINGS: FileTreeAlternativePluginSettings = {
     folderNote: false,
     deleteFileOption: 'trash',
     showFileNameAsFullPath: false,
+    bookmarksEvents: false,
 };
 
 export class FileTreeAlternativePluginSettingsTab extends PluginSettingTab {
@@ -86,16 +93,6 @@ export class FileTreeAlternativePluginSettingsTab extends PluginSettingTab {
         let lsh = new LocalStorageHandler({});
 
         /* ------------- Buy Me a Coffee ------------- */
-
-        const tipDiv = containerEl.createDiv('tip');
-        tipDiv.addClass('oz-tip-div');
-        const tipLink = tipDiv.createEl('a', { href: 'https://revolut.me/ozante' });
-        const tipImg = tipLink.createEl('img', {
-            attr: {
-                src: 'https://raw.githubusercontent.com/ozntel/file-tree-alternative/main/images/tip%20the%20artist_v2.png',
-            },
-        });
-        tipImg.height = 55;
 
         const coffeeDiv = containerEl.createDiv('coffee');
         coffeeDiv.addClass('oz-coffee-div');
@@ -144,6 +141,25 @@ export class FileTreeAlternativePluginSettingsTab extends PluginSettingTab {
             .addToggle((toggle) =>
                 toggle.setValue(this.plugin.settings.openViewOnStart).onChange((value) => {
                     this.plugin.settings.openViewOnStart = value;
+                    this.plugin.saveSettings();
+                })
+            );
+
+        new Setting(containerEl)
+            .setName('Bookmarks Event Listener (Shift + Click)')
+            .setDesc(
+                'This will enable to reveal file or folder from core bookmarks plugin.' +
+                    'Because there is no API yet to overwrite the default behaviour for Bookmarks plugin,' +
+                    'this will add an event to reveal file if you click on bookmark name using shift'
+            )
+            .addToggle((toggle) =>
+                toggle.setValue(this.plugin.settings.bookmarksEvents).onChange((value) => {
+                    this.plugin.settings.bookmarksEvents = value;
+                    if (value) {
+                        this.plugin.bookmarksAddEventListener();
+                    } else {
+                        this.plugin.bookmarksRemoveEventListener();
+                    }
                     this.plugin.saveSettings();
                 })
             );
@@ -380,6 +396,17 @@ export class FileTreeAlternativePluginSettingsTab extends PluginSettingTab {
         /* ------------- Exclusion Settings ------------- */
 
         containerEl.createEl('h2', { text: 'Exclude Settings' });
+
+        new Setting(containerEl)
+            .setName('Hide Attachments')
+            .setDesc(`It will hide "attachments" folder from the view and any file under this folder from the file list`)
+            .addToggle((toggle) =>
+                toggle.setValue(this.plugin.settings.hideAttachments).onChange((value) => {
+                    this.plugin.settings.hideAttachments = value;
+                    this.plugin.saveSettings();
+                    this.plugin.refreshTreeLeafs();
+                })
+            );
 
         new Setting(containerEl)
             .setName('Excluded File Extensions')
