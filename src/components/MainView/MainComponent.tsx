@@ -384,21 +384,26 @@ export default function MainTreeComponent(props: MainTreeComponentProps) {
     }
 
     function scrollToFolder(folder: TFolder) {
-        const selector = `div.oz-folder-contents div.oz-folder-element[data-path="${folder.path}"]`;
+        // const selector = `div.oz-folder-contents div.oz-folder-element[data-path="${folder.path}"]`;
+        // include the root node, which the nested CSS in the previous line misses
+        const selector = `div.oz-folder-element[data-path="${folder.path}"]`;
         const folderElement = document.querySelector(selector);
-        if (folderElement) folderElement.scrollIntoView(false);
+        // if (folderElement) folderElement.scrollIntoView(false);
+        // scroll to center instead of bottom
+        if (folderElement) folderElement.scrollIntoView({ block: "center" });
     }
 
     // Helper for Reveal Button: Obtain all folders that needs to be opened
     const getAllFoldersToOpen = (fileToReveal: TFile | TFolder) => {
+        // always open all folders
         let foldersToOpen: string[] = [];
-        const recursiveFx = (folder: TFolder) => {
+        const allFolders = plugin.app.vault.getAllFolders();
+        for (const folder of allFolders) {
             foldersToOpen.push(folder.path);
-            if (folder.parent) recursiveFx(folder.parent);
-        };
-        recursiveFx(fileToReveal instanceof TFile ? fileToReveal.parent : fileToReveal);
+        }
         return foldersToOpen;
     };
+
 
     // --> Handle Reveal Folder Button
     function revealFolderInFileTree(folderToReveal: TFolder) {
